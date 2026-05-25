@@ -1,0 +1,25 @@
+# Minimal "service deployment" playbook: it just imports the upstream
+# bodsch.dns.bind role and reloads, mirroring the shape of the parent
+# project's deploy-bind.yml -- WITHOUT any freeze/thaw or journal cleanup, so
+# the bug is reproduced rather than hidden.
+#
+# Copyright 2026 Buo-ren Lin (OSSII) <buoren.lin@ossii.com.tw>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+- name: Deploy a BIND authoritative primary (upstream role)
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure APT package index is fresh
+      when: ansible_facts.os_family == "Debian"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Import the upstream bodsch.dns.bind role
+      ansible.builtin.import_role:
+        name: bodsch.dns.bind
+
+    - name: Force reload BIND configuration
+      changed_when: true
+      ansible.builtin.command:
+        cmd: rndc reload

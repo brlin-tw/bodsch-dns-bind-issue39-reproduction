@@ -1,0 +1,5 @@
+# Vagrant machine state
+/.vagrant/
+
+# Ansible Galaxy dependencies installed by reproduce.sh (see requirements.yml)
+/collections/

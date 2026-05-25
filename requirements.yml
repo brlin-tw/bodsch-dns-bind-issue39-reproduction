@@ -1,0 +1,14 @@
+---
+# The UPSTREAM role under test, pinned to the same version the parent project
+# uses.  reproduce.sh installs this into ./collections so the bug is shown
+# against the unmodified upstream role, not a local fork.
+#
+# Copyright 2026 Buo-ren Lin (OSSII) <buoren.lin@ossii.com.tw>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+collections:
+  - name: bodsch.dns
+    version: "1.4.1"
+  - name: community.general
+    version: ">=9.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0"

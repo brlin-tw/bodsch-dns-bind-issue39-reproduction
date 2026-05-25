@@ -1,0 +1,50 @@
+# Minimal inventory: a single authoritative primary serving ONE dynamic zone
+# (repro.test).  Variable names are the bodsch.dns.bind role's required
+# interface; the values are this testcase's own, not the parent project's.
+#
+# Copyright 2026 Buo-ren Lin (OSSII) <buoren.lin@ossii.com.tw>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+all:
+  hosts:
+    repro-primary:
+      ansible_host: 192.168.56.30
+      ansible_user: vagrant
+      ansible_password: vagrant
+      ansible_become_password: vagrant
+  vars:
+    bind_listen:
+      ipv4:
+        - port: 53
+          addresses:
+            - any
+      ipv6:
+        - port: 53
+          addresses:
+            - any
+    bind_allow_query:
+      - any
+    bind_zone_file_mode: '0660'
+    bind_zone_soa:
+      ttl: "600"
+      time_to_refresh: "60"
+      time_to_retry: "60"
+      time_to_expire: "1W"
+      minimum_ttl: "10"
+    bind_zones:
+      - name: repro.test
+        type: primary
+        create_forward_zones: true
+        create_reverse_zones: false
+        networks:
+          - 192.168.56
+        hostmaster_email: no-reply
+        name_servers:
+          - ns
+        # Key-free: accept dynamic updates from localhost only, so the testcase
+        # needs no TSIG material.  (Production uses `key "primary-ddns-hosts"`;
+        # the auth method is irrelevant to the journal bug.)
+        allow_updates:
+          - 127.0.0.1
+        hosts:
+          - name: ns
+            ip: 192.168.56.30
