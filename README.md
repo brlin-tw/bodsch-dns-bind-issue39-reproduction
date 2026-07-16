@@ -88,10 +88,53 @@ Two non-obvious facts, both demonstrated by the script:
   failure only surfaces on the next `named` restart — a reboot, a package
   upgrade, or an explicit restart. Step 5 makes that restart explicit.
 
-## The fix (for reference)
+## The fix
 
-Before re-templating a dynamic zone, either `rndc freeze` it (which flushes the
-journal into the file and suspends updates) or delete the stale `*.jnl`, then
-`rndc thaw` / reload afterwards — wrapped so a mid-deploy failure never leaves a
-zone frozen. That freeze/thaw + journal-cleanup change is the durable
-prevention discussed in the investigation.
+The durable fix is to stop treating a dynamic zone's master file as an
+ordinary template output. The role should create that file only when the zone
+is first provisioned. Once BIND has loaded the zone, BIND owns both the master
+file and its journal; subsequent record changes should be made with dynamic
+updates (`nsupdate`). Non-dynamic zones can continue to be re-templated on each
+deployment.
+
+If replacing a live dynamic zone file is intentional, use BIND's supported
+transaction:
+
+1. Run `rndc freeze <zone>`. This suspends dynamic updates and synchronizes
+   journaled changes into the master file.
+2. Replace or edit the master file.
+3. Run `rndc thaw <zone>` to load the edited file and resume dynamic updates.
+
+The thaw must run from an unconditional cleanup path (for example, an Ansible
+`always` block), so a failed deployment cannot leave the zone frozen:
+
+```yaml
+- name: Replace dynamic zone safely
+  block:
+    - name: Freeze and synchronize the zone
+      ansible.builtin.command:
+        cmd: rndc freeze repro.test
+      changed_when: true
+
+    - name: Deploy the zone contents
+      ansible.builtin.import_role:
+        name: bodsch.dns.bind
+
+  always:
+    - name: Thaw and reload the zone
+      ansible.builtin.command:
+        cmd: rndc thaw repro.test
+      changed_when: true
+```
+
+Freeze/thaw prevents the journal from becoming incompatible with the replaced
+file, but it does not merge dynamically added records into the role's generated
+content. If those records are absent from `bind_zones`, re-templating can still
+discard them. This is why creating the file once and using `nsupdate`
+afterwards is preferred.
+
+Do not use unconditional `rm *.jnl` as the normal deployment fix. An
+unsynchronized journal can contain accepted DDNS changes that are not yet in
+the master file, so deleting it can lose data. Journal removal should be
+reserved for deliberate recovery after preserving, synchronizing, or knowingly
+discarding its contents.
